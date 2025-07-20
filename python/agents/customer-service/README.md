@@ -127,7 +127,7 @@ The agent has access to the following tools:
   To activate the virtual environment run:
 
   ```bash
-  poetry env activate
+  poetry env activate 
   ```
 
 3.  Set up Google Cloud credentials:

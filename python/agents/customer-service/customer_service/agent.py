@@ -1,74 +1,52 @@
-# Copyright 2025 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.§
-
-"""Agent module for the customer service agent."""
-
-import logging
-import warnings
-from google.adk import Agent
-from .config import Config
-from .prompts import GLOBAL_INSTRUCTION, INSTRUCTION
-from .shared_libraries.callbacks import (
-    rate_limit_callback,
-    before_agent,
-    before_tool,
-    after_tool
+import warnings # Importa el módulo 'warnings' para controlar los mensajes de advertencia.
+from google.adk import Agent # Importa la clase 'Agent' del SDK de Gemini (ADK - Agent Development Kit).
+from .config import Config # Importa la clase Config desde el módulo de configuración local.
+from .prompts import GLOBAL_INSTRUCTION, INSTRUCTION # Importa las instrucciones globales y específicas del agente.
+from .shared_libraries.callbacks import ( # Importa funciones de callback (funciones que se ejecutan en ciertos momentos).
+    rate_limit_callback, # Callback para manejar límites de tasa (previene exceso de llamadas a la API).
+    before_agent,      # Callback que se ejecuta antes de que el agente procese una solicitud.
+    before_tool,       # Callback que se ejecuta antes de que una herramienta sea invocada.
+    after_tool         # Callback que se ejecuta después de que una herramienta ha terminado su ejecución.
 )
-from .tools.tools import (
-    send_call_companion_link,
-    approve_discount,
-    sync_ask_for_approval,
-    update_salesforce_crm,
-    access_cart_information,
-    modify_cart,
-    get_product_recommendations,
-    check_product_availability,
-    schedule_planting_service,
-    get_available_planting_times,
-    send_care_instructions,
-    generate_qr_code,
+from .tools.tools import ( # Importa las herramientas que el agente puede utilizar.
+    search_products_csv, # Importa la herramienta para buscar productos en el CSV.
 )
 
+# Filtra las advertencias de usuario relacionadas con el módulo 'pydantic'.
+# Esto es común en entornos de desarrollo para suprimir mensajes que no afectan la funcionalidad.
 warnings.filterwarnings("ignore", category=UserWarning, module=".*pydantic.*")
 
+# Instancia la clase Config para cargar la configuración del agente desde el archivo de configuración.
 configs = Config()
 
-# configure logging __name__
-logger = logging.getLogger(__name__)
-
-
+# Define e inicializa la instancia principal del Agente (BotTech Assistant).
 root_agent = Agent(
+    # Modelo de IA que utilizará el agente (ej. 'gemini-pro'). Definido en la configuración.
     model=configs.agent_settings.model,
+    
+    # Instrucción global para el agente. Define su propósito general y comportamiento fundamental.
+    # Esta es una instrucción de alto nivel que el agente siempre debe recordar.
     global_instruction=GLOBAL_INSTRUCTION,
+    
+    # Instrucción específica para la tarea actual o la fase del agente.
+    # Puede ser más detallada y cambiar según el contexto de la conversación.
     instruction=INSTRUCTION,
+    
+    # El nombre del agente, útil para logs o identificaciones.
     name=configs.agent_settings.name,
+    
+    # Lista de herramientas que este agente tiene permiso para usar.
+    # En esta fase, solo incluye 'search_products_csv' para el asesoramiento.
     tools=[
-        send_call_companion_link,
-        approve_discount,
-        sync_ask_for_approval,
-        update_salesforce_crm,
-        access_cart_information,
-        modify_cart,
-        get_product_recommendations,
-        check_product_availability,
-        schedule_planting_service,
-        get_available_planting_times,
-        send_care_instructions,
-        generate_qr_code,
+        search_products_csv, # La herramienta para buscar productos en el catálogo CSV.
+        # En futuras fases, se añadirán aquí más herramientas (ej. para cotizaciones).
     ],
-    before_tool_callback=before_tool,
-    after_tool_callback=after_tool,
-    before_agent_callback=before_agent,
-    before_model_callback=rate_limit_callback,
+    
+    # Configuración de los callbacks: funciones que se ejecutarán automáticamente
+    # en diferentes puntos del ciclo de vida de la interacción del agente.
+    before_tool_callback=before_tool,      # Se ejecuta antes de llamar a cualquier herramienta.
+    after_tool_callback=after_tool,        # Se ejecuta después de que cualquier herramienta ha terminado.
+    before_agent_callback=before_agent,    # Se ejecuta antes de que el agente procese la entrada del usuario.
+    before_model_callback=rate_limit_callback, # Se ejecuta antes de hacer una llamada al modelo de IA,
+                                                # útil para controlar la tasa de uso de la API.
 )
