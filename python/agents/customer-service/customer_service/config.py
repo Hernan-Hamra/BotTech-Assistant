@@ -27,16 +27,17 @@ class AgentModel(BaseModel):
     """Agent model settings."""
 
     name: str = Field(default="customer_service_agent")
-    model: str = Field(default="gemini-2.5-flash")
+    model: str = Field(default="gemini-1.5-flash")
 
 
 class Config(BaseSettings):
     """Configuration settings for the customer service agent."""
 
     model_config = SettingsConfigDict(
-        env_file=os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "../.env"
-        ),
+        env_file=[
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.env"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.env.db"),
+        ],
         env_prefix="GOOGLE_",
         case_sensitive=True,
     )
@@ -46,3 +47,8 @@ class Config(BaseSettings):
     CLOUD_LOCATION: str = Field(default="us-central1")
     GENAI_USE_VERTEXAI: str = Field(default="1")
     API_KEY: str | None = Field(default="")
+    DB_NAME: str = Field(default="")
+    DB_USER: str = Field(default="")
+    DB_PASSWORD: str = Field(default="")
+    DB_HOST: str = Field(default="")
+    DB_PORT: str = Field(default="")
