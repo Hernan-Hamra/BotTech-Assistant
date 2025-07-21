@@ -9,7 +9,7 @@ from .shared_libraries.callbacks import ( # Importa funciones de callback (funci
     after_tool         # Callback que se ejecuta después de que una herramienta ha terminado su ejecución.
 )
 from .tools.tools import ( # Importa las herramientas que el agente puede utilizar.
-    search_products_csv, # Importa la herramienta para buscar productos en el CSV.
+    search_products, # Importa la herramienta para buscar productos en la base de datos.
 )
 
 # Filtra las advertencias de usuario relacionadas con el módulo 'pydantic'.
@@ -38,7 +38,7 @@ root_agent = Agent(
     # Lista de herramientas que este agente tiene permiso para usar.
     # En esta fase, solo incluye 'search_products_csv' para el asesoramiento.
     tools=[
-        search_products_csv, # La herramienta para buscar productos en el catálogo CSV.
+        search_products, # La herramienta para buscar productos en la base de datos.
         # En futuras fases, se añadirán aquí más herramientas (ej. para cotizaciones).
     ],
     

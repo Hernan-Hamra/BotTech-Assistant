@@ -27,7 +27,7 @@ class AgentModel(BaseModel):
     """Agent model settings."""
 
     name: str = Field(default="customer_service_agent")
-    model: str = Field(default="gemini-1.5-flash")
+    model: str = Field(default="gemini-2.5-flash")
 
 
 class Config(BaseSettings):

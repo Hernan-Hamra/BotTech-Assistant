@@ -3,9 +3,10 @@ from typing import List, Dict, Any, Optional
 import os
 import psycopg2
 from psycopg2.extras import DictCursor
-from dotenv import load_dotenv
+from .config import Config # Importa la clase Config desde el módulo de configuración local.
+from decimal import Decimal
 
-load_dotenv() # Carga las variables del archivo .env
+configs = Config() # Instancia la clase Config para cargar la configuración del agente.
 
 # --- Database Connection ---
 
@@ -13,16 +14,23 @@ def get_db_connection():
     """Establece y devuelve una conexión a la base de datos PostgreSQL."""
     try:
         conn = psycopg2.connect(
-            dbname=os.getenv("DB_NAME"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT")
+            dbname=configs.DB_NAME,
+            user=configs.DB_USER,
+            password=configs.DB_PASSWORD,
+            host=configs.DB_HOST,
+            port=configs.DB_PORT
         )
         return conn
     except psycopg2.OperationalError as e:
         print(f"Error al conectar con la base de datos: {e}")
         return None
+
+def _convert_decimals_to_floats(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Convierte todos los objetos Decimal en un diccionario a float."""
+    for key, value in data.items():
+        if isinstance(value, Decimal):
+            data[key] = float(value)
+    return data
 
 def get_product_by_code_from_db(code: str) -> Dict[str, Any]:
     """Busca un producto por su código en la base de datos."""
@@ -40,7 +48,7 @@ def get_product_by_code_from_db(code: str) -> Dict[str, Any]:
     finally:
         conn.close()
     
-    return dict(product) if product else None
+    return _convert_decimals_to_floats(dict(product)) if product else None
 
 def search_products_from_db(
     categoria: Optional[str] = None,
@@ -49,6 +57,7 @@ def search_products_from_db(
     precio_max_usd: Optional[float] = None,
     precio_min_usd: Optional[float] = None,
     codigo: Optional[str] = None,
+    nro_de_parte: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Busca productos en la base de datos basándose en los criterios proporcionados.
@@ -75,6 +84,9 @@ def search_products_from_db(
             if codigo:
                 query += " AND \"Codigo\" = %s"
                 params.append(codigo)
+            if nro_de_parte:
+                query += " AND \"Nro. de Parte\" ILIKE %s"
+                params.append(f"%{nro_de_parte}%")
             if precio_max_usd is not None:
                 query += " AND \"Precio Final U$D\" <= %s"
                 params.append(precio_max_usd)
@@ -86,7 +98,7 @@ def search_products_from_db(
             query += " ORDER BY \"Stock\" DESC, id ASC LIMIT 10"
 
             cur.execute(query, params)
-            products = [dict(row) for row in cur.fetchall()]
+            products = [_convert_decimals_to_floats(dict(row)) for row in cur.fetchall()]
     except Exception as e:
         print(f"Error al buscar productos en la base de datos: {e}")
     finally:
