@@ -85,8 +85,10 @@ def search_products_from_db(
                 query += " AND \"Codigo\" = %s"
                 params.append(codigo)
             if nro_de_parte:
-                query += " AND \"Nro. de Parte\" ILIKE %s"
-                params.append(f"%{nro_de_parte}%")
+                # Normaliza el número de parte eliminando espacios en blanco
+                normalized_nro_de_parte = nro_de_parte.replace(" ", "")
+                query += " AND REPLACE(\"Nro. de Parte\", ' ', '') ILIKE %s"
+                params.append(f"%{normalized_nro_de_parte}%")
             if precio_max_usd is not None:
                 query += " AND \"Precio Final U$D\" <= %s"
                 params.append(precio_max_usd)
