@@ -1,10 +1,13 @@
 import logging
 import os
 from typing import List, Dict, Any, Optional
-from customer_service.data_manager import search_products_from_db
-from google.cloud import discoveryengine_v1beta as discoveryengine
+from customer_service.data_manager import search_products_from_db, get_product_by_code_from_db, _extract_socket_from_product_name
+from customer_service.quote_manager import QuoteManager
 
 logger = logging.getLogger(__name__)
+
+# Instancia del gestor de presupuestos
+quote_manager = QuoteManager()
 
 # Load environment variables for Google Cloud Project and Location
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT")
@@ -30,6 +33,7 @@ def search_products(
     precio_min_usd: Optional[float] = None,
     codigo: Optional[str] = None,
     nro_de_parte: Optional[str] = None,
+    socket_type: Optional[str] = None, # Nuevo parámetro para filtrar por socket
 ) -> List[Dict[str, Any]]:
     """
     Busca productos en la base de datos basándose en los criterios proporcionados.
@@ -58,30 +62,31 @@ def search_products(
         precio_max_usd=precio_max_usd,
         precio_min_usd=precio_min_usd,
         codigo=codigo,
-        nro_de_parte=nro_de_parte
+        nro_de_parte=nro_de_parte,
+        socket_type=socket_type # Pasar el nuevo parámetro
     )
     
     if not products:
-        # Si no se encontraron productos con la búsqueda inicial, intentar una búsqueda más flexible.
-        # Esto es útil para errores de tipografía o variaciones en el nombre.
+        # Si no se encontraron productos con la búsqueda inicial, intentar una búsqueda más flexible
+        # dentro de la misma categoría.
         flexible_products = []
-        if producto: # Si se proporcionó un nombre de producto, buscarlo en nro_de_parte
-            flexible_products = search_products_from_db(nro_de_parte=producto)
-        elif nro_de_parte: # Si se proporcionó un nro_de_parte, buscarlo en producto
-            flexible_products = search_products_from_db(producto=nro_de_parte)
+        if producto: # Si se proporcionó un nombre de producto, buscarlo en nro_de_parte dentro de la categoría
+            flexible_products = search_products_from_db(categoria=categoria, nro_de_parte=producto)
+        elif nro_de_parte: # Si se proporcionó un nro_de_parte, buscarlo en producto dentro de la categoría
+            flexible_products = search_products_from_db(categoria=categoria, producto=nro_de_parte)
 
         if flexible_products:
-            # Tomar el primer producto como la sugerencia más parecida
+            # Tomar el primer producto como la sugerencia más parecida dentro de la categoría
             suggested_product = flexible_products[0]
             suggested_name = suggested_product.get("Producto", "")
             suggested_part_number = suggested_product.get("Nro. de Parte", "")
             return [{
                 "message": f"No encontré una coincidencia exacta con el producto o número de parte que buscas. "
-                           f"Pero el más parecido que encontré es: {suggested_name} (Nro. de Parte: {suggested_part_number}). "
+                           f"Pero el más parecido que encontré en la categoría {categoria} es: {suggested_name} (Nro. de Parte: {suggested_part_number}). "
                            f"¿Deseas consultar sobre este producto?"
             }]
         else:
-            return [{"message": "No se encontraron productos que coincidan con los criterios de búsqueda."}]
+            return []
     
     for product in products:
         if "Stock" in product:
@@ -148,3 +153,28 @@ def query_datasheet_rag(query: str) -> List[str]:
     except Exception as e:
         logger.error(f"Error al consultar el RAG: {e}")
         return [f"Error al consultar la base de datos de datasheets: {e}"]
+
+# --- Herramientas para la Gestión de Presupuestos ---
+
+def add_item_to_quote(product_code: str, quantity: int = 1) -> Dict[str, Any]:
+    """Añade un producto al presupuesto por su código y la cantidad deseada. Devuelve el presupuesto actualizado."""
+    product = get_product_by_code_from_db(product_code)
+    if not product:
+        return {"error": f"Producto con código {product_code} no encontrado."}
+    
+    quote_manager.add_item(product, quantity)
+    return quote_manager.get_quote()
+
+def view_quote() -> Dict[str, Any]:
+    """Muestra el contenido actual del presupuesto, incluyendo los productos, cantidades y el total."""
+    return quote_manager.get_quote()
+
+def remove_item_from_quote(product_code: str) -> Dict[str, Any]:
+    """Elimina un producto del presupuesto por su código. Devuelve el presupuesto actualizado."""
+    quote_manager.remove_item(product_code)
+    return quote_manager.get_quote()
+
+def clear_quote() -> Dict[str, Any]:
+    """Vacía completamente el presupuesto actual."""
+    quote_manager.clear_quote()
+    return quote_manager.get_quote()
